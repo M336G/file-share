@@ -31,6 +31,13 @@ void Config::loadEnvironmentVariables() {
     if (const char *envDir = std::getenv("STORAGE_DIRECTORY"))
         STORAGE_DIRECTORY = envDir;
 
+    // Try getting the DISABLE_INDEX value
+    if (const char *envIndex = std::getenv("STORAGE_DIRECTORY")) {
+        if (envIndex == "true" || envIndex == "1")
+            DISABLE_INDEX = true;
+        else
+            DISABLE_INDEX = false;
+    }
     /*
         Try getting the environment variables from .env afterwards
         (it will override the ones previously gotten if they were set)
@@ -60,14 +67,24 @@ void Config::loadEnvironmentVariables() {
             if (key == "PORT") {
                 try {
                     int portValue = std::stoi(value);
-                    if (portValue >= 0 && portValue <= 65535) PORT = static_cast<uint16_t>(portValue);
+                    if (portValue >= 0 && portValue <= 65535)
+                        PORT = static_cast<uint16_t>(portValue);
                 } catch (...) {
                     Log::error(std::format("Invalid PORT value: {}", value));
                 }
-
+            }
+            
             // Try getting the STORAGE_DIRECTORY
-            } else if (key == "STORAGE_DIRECTORY") {
+            else if (key == "STORAGE_DIRECTORY") {
                 STORAGE_DIRECTORY = value;
+            }
+
+            // Try getting the DISABLE_INDEX value
+            else if (key == "DISABLE_INDEX") {
+                if (value == "true" || value == "1")
+                    DISABLE_INDEX = true;
+                else
+                    DISABLE_INDEX = false;
             }
         }
     }

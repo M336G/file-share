@@ -41,11 +41,21 @@ int main() {
         Get a list of all the files available for download in the storage directory
     */
     srv.Options("/files", [](const httplib::Request &, httplib::Response &res) {
+        if (Config::DISABLE_INDEX) {
+            res.status = 404;
+            return;
+        }
+
         res.set_header("Access-Control-Allow-Origin", "*");
         res.set_header("Access-Control-Allow-Methods", "OPTIONS, HEAD, GET");
         res.status = 204;
     });
     srv.Get("/files", [](const httplib::Request &, httplib::Response &res) {
+        if (Config::DISABLE_INDEX) {
+            res.status = 404;
+            return;
+        }
+
         res.set_header("Access-Control-Allow-Origin", "*");
         res.set_header("Access-Control-Allow-Methods", "OPTIONS, HEAD, GET");
 
