@@ -6,10 +6,12 @@
 #include <format>
 #include <fstream>
 
+namespace fs = std::filesystem;
+
 int main() {
     Config::loadEnvironmentVariables();
     
-    if (Config::STORAGE_DIRECTORY.empty()) {
+    if (Config::STORAGE_DIRECTORY.empty() || !fs::exists(Config::STORAGE_DIRECTORY) || !fs::is_directory(Config::STORAGE_DIRECTORY)) {
         Log::error("Please set a STORAGE_DIRECTORY environment variable");
         return 0;
     }
@@ -21,12 +23,12 @@ int main() {
     */
     srv.Options("/ping", [](const httplib::Request &, httplib::Response &res) {
         res.set_header("Access-Control-Allow-Origin", "*");
-        res.set_header("Access-Control-Allow-Methods", "OPTIONS, HEAD, GET");
+        res.set_header("Access-Control-Allow-Methods", "OPTIONS, GET");
         res.status = 204;
     });
     srv.Get("/ping", [](const httplib::Request &, httplib::Response &res) {
         res.set_header("Access-Control-Allow-Origin", "*");
-        res.set_header("Access-Control-Allow-Methods", "OPTIONS, HEAD, GET");
+        res.set_header("Access-Control-Allow-Methods", "OPTIONS, GET");
 
         res.set_header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
         res.set_header("Pragma", "no-cache");
@@ -47,7 +49,7 @@ int main() {
         }
 
         res.set_header("Access-Control-Allow-Origin", "*");
-        res.set_header("Access-Control-Allow-Methods", "OPTIONS, HEAD, GET");
+        res.set_header("Access-Control-Allow-Methods", "OPTIONS, GET");
         res.status = 204;
     });
     srv.Get("/files", [](const httplib::Request &, httplib::Response &res) {
@@ -57,14 +59,14 @@ int main() {
         }
 
         res.set_header("Access-Control-Allow-Origin", "*");
-        res.set_header("Access-Control-Allow-Methods", "OPTIONS, HEAD, GET");
+        res.set_header("Access-Control-Allow-Methods", "OPTIONS, GET");
 
         std::stringstream files;
 
         try {
-            for (const auto& entry : std::filesystem::directory_iterator(Config::STORAGE_DIRECTORY))
+            for (const auto& entry : fs::directory_iterator(Config::STORAGE_DIRECTORY))
                 files << entry.path().filename().string() << std::endl;
-        } catch (const std::filesystem::filesystem_error& error) {
+        } catch (const fs::filesystem_error& error) {
             Log::error(error.what());
             res.status = 500;
             return;
@@ -95,7 +97,7 @@ int main() {
 
         try {
             // Iterate over every file in the storage directory
-            for (const auto& entry : std::filesystem::directory_iterator(Config::STORAGE_DIRECTORY)) {
+            for (const auto& entry : fs::directory_iterator(Config::STORAGE_DIRECTORY)) {
                 const auto filePath = entry.path();
                 const auto fileName = filePath.filename().string();
                 // If a match is found, return the file
@@ -113,7 +115,7 @@ int main() {
             res.status = 404;
 
         // In the case of an error while trying to iterate over every file
-        } catch (const std::filesystem::filesystem_error &error) {
+        } catch (const fs::filesystem_error &error) {
             Log::error(error.what());
             res.status = 500;
         }

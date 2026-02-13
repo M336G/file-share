@@ -32,12 +32,9 @@ void Config::loadEnvironmentVariables() {
         STORAGE_DIRECTORY = envDir;
 
     // Try getting the DISABLE_INDEX value
-    if (const char *envIndex = std::getenv("STORAGE_DIRECTORY")) {
-        if (envIndex == "true" || envIndex == "1")
-            DISABLE_INDEX = true;
-        else
-            DISABLE_INDEX = false;
-    }
+    if (const char *envIndex = std::getenv("DISABLE_INDEX"))
+        DISABLE_INDEX = (envIndex == "true" || envIndex == "1");
+    
     /*
         Try getting the environment variables from .env afterwards
         (it will override the ones previously gotten if they were set)
@@ -47,7 +44,6 @@ void Config::loadEnvironmentVariables() {
     if (std::filesystem::exists(".env")) {
         std::ifstream envFile(".env");
         std::string line;
-        Log::message(line);
 
         while (std::getline(envFile, line)) {
             line = trim(line);
@@ -81,10 +77,7 @@ void Config::loadEnvironmentVariables() {
 
             // Try getting the DISABLE_INDEX value
             else if (key == "DISABLE_INDEX") {
-                if (value == "true" || value == "1")
-                    DISABLE_INDEX = true;
-                else
-                    DISABLE_INDEX = false;
+                DISABLE_INDEX = (value == "true" || value == "1");
             }
         }
     }
