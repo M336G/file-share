@@ -1,5 +1,6 @@
 #include "log.h"
 #include "config.h"
+#include "helper.h"
 
 #include <httplib.h>
 #include <filesystem>
@@ -64,15 +65,17 @@ int main() {
         std::stringstream files;
 
         try {
-            for (const auto& entry : fs::directory_iterator(Config::STORAGE_DIRECTORY))
-                files << entry.path().filename().string() << std::endl;
+            for (const auto& entry : fs::directory_iterator(Config::STORAGE_DIRECTORY)) {
+                auto filename = entry.path().filename().u8string();
+                files << std::string(filename.begin(), filename.end()) << std::endl;
+            }
         } catch (const fs::filesystem_error& error) {
             Log::error(error.what());
             res.status = 500;
             return;
         }
 
-        res.set_content(files.str(), "text/plain");
+        res.set_content(files.str(), "text/plain; charset=utf-8");
     });
 
     /*
@@ -80,41 +83,37 @@ int main() {
     */
     srv.Options(R"(/(.*))", [](const httplib::Request &, httplib::Response &res) {
         res.set_header("Access-Control-Allow-Origin", "*");
-        res.set_header("Access-Control-Allow-Methods", "OPTIONS, HEAD, GET");
+        res.set_header("Access-Control-Allow-Methods", "OPTIONS, GET");
         res.status = 204;
     });
     srv.Get(R"(/(.*))", [](const httplib::Request &req, httplib::Response &res) {
         res.set_header("Access-Control-Allow-Origin", "*");
-        res.set_header("Access-Control-Allow-Methods", "OPTIONS, HEAD, GET");
+        res.set_header("Access-Control-Allow-Methods", "OPTIONS, GET");
 
         std::string requestedFile = req.matches[1];
 
-        // If requestedFile is empty, return 400
-        if (requestedFile.empty()) {
+        // If requestedFile is empty or if it contains characters that could cause a security risk, return 400
+        if (requestedFile.empty() || Helper::containsUnallowedPathCharacters(requestedFile)) {
             res.status = 400;
             return;
         }
 
         try {
-            // Iterate over every file in the storage directory
-            for (const auto& entry : fs::directory_iterator(Config::STORAGE_DIRECTORY)) {
-                const auto filePath = entry.path();
-                const auto fileName = filePath.filename().string();
-                // If a match is found, return the file
-                if (fileName == requestedFile) {
-                    // Cache the file for a hour
-                    res.set_header("Cache-Control", "public, max-age=3600");
+            // Assemble the full file path
+            fs::path requestedFilePath = fs::path(Config::STORAGE_DIRECTORY) / requestedFile;
 
-                    res.set_header("Content-Disposition", std::format("inline; filename=\"{}\"", fileName));
-                    res.set_file_content(filePath.string());
-                    return;
-                }
+            // Check if the file exists and return it with some headers if it does
+            if (fs::exists(requestedFilePath) && fs::is_regular_file(requestedFilePath)) {
+                // Cache the file for a hour
+                res.set_header("Cache-Control", "public, max-age=3600");
+
+                res.set_header("Content-Disposition", std::format("inline; filename=\"{}\"", requestedFile));
+                res.set_file_content(requestedFilePath.string());
+            } else {
+                res.status = 404;
             }
 
-            // Otherwise if no match was found, return 404
-            res.status = 404;
-
-        // In the case of an error while trying to iterate over every file
+        // In case of an error while trying to check for/return the file
         } catch (const fs::filesystem_error &error) {
             Log::error(error.what());
             res.status = 500;
